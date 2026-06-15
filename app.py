@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 
-# Gemini API
+# Configure Gemini
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 model = genai.GenerativeModel("models/gemini-3.5-flash")
@@ -19,153 +19,110 @@ uploaded_file = st.file_uploader(
     type=["pdf"]
 )
 
-if uploaded_file:
+if uploaded_file is not None:
 
-    pdf = PdfReader(uploaded_file)
+    try:
+        pdf = PdfReader(uploaded_file)
 
-    text = ""
+        text = ""
 
-    for page in pdf.pages:
-        page_text = page.extract_text()
+        for page in pdf.pages:
+            page_text = page.extract_text()
 
-        if page_text:
-            text += page_text
+            if page_text:
+                text += page_text
 
-    st.success("PDF Uploaded Successfully")
+        st.success("PDF Uploaded Successfully")
 
-    st.session_state["paper_text"] = text
+        st.session_state["paper_text"] = text
 
-    if st.button("Generate Complete Analysis"):
+        if st.button("Generate Analysis"):
 
-        with st.spinner("Analyzing Paper... Please Wait"):
+            with st.spinner("Analyzing Paper..."):
 
-            summary = model.generate_content(
-                f"Summarize this research paper:\n{text[:20000]}"
-            )
+                summary = model.generate_content(
+                    f"""
+                    Summarize this research paper in detail.
 
-            contributions = model.generate_content(
-                f"""
-                Analyze this paper and provide:
+                    Paper:
+                    {text[:15000]}
+                    """
+                )
 
-                1. Main Contributions
-                2. Novel Contributions
-                3. Importance of the Work
-                4. Research Impact
+                contributions = model.generate_content(
+                    f"""
+                    Identify:
 
-                Paper:
-                {text[:20000]}
-                """
-            )
+                    1. Main Contributions
+                    2. Novelty
+                    3. Importance
+                    4. Research Impact
 
-            slides = model.generate_content(
-                f"""
-                Create a professional 10-slide presentation.
+                    Paper:
+                    {text[:15000]}
+                    """
+                )
 
-                Paper:
-                {text[:20000]}
-                """
-            )
+                slides = model.generate_content(
+                    f"""
+                    Create a professional 10-slide presentation.
 
-            speaker_notes = model.generate_content(
-                f"""
-                Create speaker notes for each presentation slide.
+                    Paper:
+                    {text[:15000]}
+                    """
+                )
 
-                Explain:
-                - What to say
-                - Key discussion points
-                - Presentation tips
+                viva = model.generate_content(
+                    f"""
+                    Generate 20 viva questions with answers.
 
-                Paper:
-                {text[:20000]}
-                """
-            )
+                    Paper:
+                    {text[:15000]}
+                    """
+                )
 
-            viva = model.generate_content(
-                f"""
-                Generate 20 viva questions with detailed answers.
+                gaps = model.generate_content(
+                    f"""
+                    Identify:
 
-                Paper:
-                {text[:20000]}
-                """
-            )
+                    1. Research Gaps
+                    2. Limitations
+                    3. Future Work
+                    4. Extension Ideas
 
-            gaps = model.generate_content(
-                f"""
-                Identify:
+                    Paper:
+                    {text[:15000]}
+                    """
+                )
 
-                1. Research Gaps
-                2. Limitations
-                3. Future Scope
-                4. Publishable Extension Ideas
+            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+                "Summary",
+                "Contributions",
+                "Slides",
+                "Viva",
+                "Research Gaps"
+            ])
 
-                Paper:
-                {text[:20000]}
-                """
-            )
+            with tab1:
+                st.write(summary.text)
 
-            literature = model.generate_content(
-                f"""
-                Create a literature review summary.
+            with tab2:
+                st.write(contributions.text)
 
-                Include:
-                - Background
-                - Related Work
-                - Research Trends
+            with tab3:
+                st.write(slides.text)
 
-                Paper:
-                {text[:20000]}
-                """
-            )
+            with tab4:
+                st.write(viva.text)
 
-            citations = model.generate_content(
-                f"""
-                Generate:
+            with tab5:
+                st.write(gaps.text)
 
-                1. APA Citation
-                2. IEEE Citation
-                3. BibTeX Entry
-
-                Paper:
-                {text[:5000]}
-                """
-            )
-
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-            "Summary",
-            "Contributions",
-            "Slides",
-            "Speaker Notes",
-            "Viva",
-            "Research Gaps",
-            "Literature & Citations"
-        ])
-
-        with tab1:
-            st.write(summary.text)
-
-        with tab2:
-            st.write(contributions.text)
-
-        with tab3:
-            st.write(slides.text)
-
-        with tab4:
-            st.write(speaker_notes.text)
-
-        with tab5:
-            st.write(viva.text)
-
-        with tab6:
-            st.write(gaps.text)
-
-        with tab7:
-            st.subheader("Literature Review")
-            st.write(literature.text)
-
-            st.subheader("Citations")
-            st.write(citations.text)
+    except Exception as e:
+        st.error(str(e))
 
 # Paper Expert Agent
+
 if "paper_text" in st.session_state:
 
     st.divider()
@@ -173,25 +130,27 @@ if "paper_text" in st.session_state:
     st.header("🤖 Paper Expert Agent")
 
     question = st.text_input(
-        "Ask anything about the uploaded paper"
+        "Ask anything about the paper"
     )
 
     if st.button("Ask Agent"):
 
-        with st.spinner("Thinking..."):
+        if question:
 
-            answer = model.generate_content(
-                f"""
-                Research Paper:
+            with st.spinner("Thinking..."):
 
-                {st.session_state['paper_text'][:20000]}
+                answer = model.generate_content(
+                    f"""
+                    Research Paper:
 
-                User Question:
+                    {st.session_state['paper_text'][:15000]}
 
-                {question}
+                    User Question:
 
-                Give a detailed answer.
-                """
-            )
+                    {question}
 
-        st.write(answer.text)
+                    Give a detailed answer.
+                    """
+                )
+
+            st.write(answer.text)
