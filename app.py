@@ -1,11 +1,13 @@
 import streamlit as st
-import google.generativeai as genai
 from pypdf import PdfReader
+import requests
+import io
 
-# Configure Gemini
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-
-model = genai.GenerativeModel("models/gemini-3.5-flash")
+try:
+    from google import genai
+except:
+    st.error("Please install: pip install google-genai")
+    st.stop()
 
 st.set_page_config(
     page_title="Paper to Presentation & Viva Agent",
@@ -14,12 +16,98 @@ st.set_page_config(
 
 st.title("📄 Paper to Presentation & Viva Agent")
 
+st.markdown("""
+### AI Research Assistant
+
+Upload a PDF or provide a paper URL.
+
+Features:
+
+✅ Summary
+
+✅ Contributions
+
+✅ Presentation Slides
+
+✅ Viva Questions
+
+✅ Research Gaps
+
+✅ Future Work
+
+✅ Paper Expert Agent
+""")
+
+# -----------------------
+# SIDEBAR
+# -----------------------
+
+st.sidebar.header("Settings")
+
+api_key = st.sidebar.text_input(
+    "Enter Gemini API Key",
+    type="password"
+)
+
+client = None
+
+if api_key:
+
+    try:
+        client = genai.Client(api_key=api_key)
+        st.sidebar.success("API Key Loaded Successfully")
+    except Exception as e:
+        st.sidebar.error(f"Invalid API Key: {e}")
+
+# -----------------------
+# PAPER URL
+# -----------------------
+
+paper_url = st.text_input(
+    "Research Paper URL (Optional)"
+)
+
 uploaded_file = st.file_uploader(
-    "Upload Research Paper PDF",
+    "Upload PDF",
     type=["pdf"]
 )
 
-if uploaded_file is not None:
+if paper_url:
+
+    try:
+
+        response = requests.get(
+            paper_url,
+            timeout=15
+        )
+
+        if response.status_code == 200:
+
+            uploaded_file = io.BytesIO(
+                response.content
+            )
+
+            st.success(
+                "Paper downloaded successfully"
+            )
+
+        else:
+
+            st.error(
+                "Unable to access paper. Please upload PDF."
+            )
+
+    except:
+
+        st.error(
+            "Unable to access paper. Please upload PDF."
+        )
+
+# -----------------------
+# PROCESS PAPER
+# -----------------------
+
+if uploaded_file is not None and client:
 
     try:
 
@@ -28,12 +116,13 @@ if uploaded_file is not None:
         text = ""
 
         for page in pdf.pages:
+
             page_text = page.extract_text()
 
             if page_text:
                 text += page_text
 
-        st.success("PDF Uploaded Successfully")
+        st.success("Paper Loaded Successfully")
 
         st.session_state["paper_text"] = text
 
@@ -41,69 +130,93 @@ if uploaded_file is not None:
 
             with st.spinner("Analyzing Paper..."):
 
-                result = model.generate_content(
-                    f"""
-                    Analyze the following research paper and provide:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=f"""
+Analyze this research paper and provide:
 
-                    1. Detailed Summary
+1. Detailed Summary
 
-                    2. Main Contributions
+2. Main Contributions
 
-                    3. Novelty and Research Impact
+3. Novelty
 
-                    4. Professional 10 Slide Presentation
+4. Research Impact
 
-                    5. 20 Viva Questions with Answers
+5. Professional 10 Slide Presentation
 
-                    6. Research Gaps
+6. 20 Viva Questions with Answers
 
-                    7. Limitations
+7. Research Gaps
 
-                    8. Future Work
+8. Limitations
 
-                    9. Extension Ideas
+9. Future Work
 
-                    Research Paper:
+10. Extension Ideas
 
-                    {text[:15000]}
-                    """
+Paper:
+
+{text[:12000]}
+"""
                 )
 
-                st.subheader("Complete Research Analysis")
+                st.subheader("Research Paper Analysis")
 
-                st.write(result.text)
+                st.write(response.text)
 
     except Exception as e:
+
         st.error(str(e))
 
-# Paper Expert Agent
+# -----------------------
+# PAPER EXPERT AGENT
+# -----------------------
 
-if "paper_text" in st.session_state:
+if "paper_text" in st.session_state and client:
 
     st.divider()
 
     st.header("🤖 Paper Expert Agent")
 
+    recommended_questions = [
+        "Explain this paper in simple language",
+        "What are the main contributions?",
+        "What are the limitations?",
+        "What research gaps exist?",
+        "How can I extend this work?",
+        "Generate viva questions",
+        "What future work is possible?",
+        "What questions might an examiner ask?"
+    ]
+
+    selected = st.selectbox(
+        "Recommended Questions",
+        recommended_questions
+    )
+
     question = st.text_input(
-        "Ask anything about the paper"
+        "Ask Anything About The Paper",
+        value=selected
     )
 
     if st.button("Ask Agent"):
 
         with st.spinner("Thinking..."):
 
-            answer = model.generate_content(
-                f"""
-                Research Paper:
+            answer = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f"""
+Research Paper:
 
-                {st.session_state['paper_text'][:15000]}
+{st.session_state['paper_text'][:12000]}
 
-                User Question:
+Question:
 
-                {question}
+{question}
 
-                Give a detailed answer.
-                """
+Give a detailed answer.
+"""
             )
 
             st.write(answer.text)
