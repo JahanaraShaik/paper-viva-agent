@@ -5,27 +5,43 @@ import io
 
 try:
     from google import genai
-except:
-    st.error("Please install: pip install google-genai")
+except Exception:
+    st.error("Please install: python -m pip install google-genai")
     st.stop()
+
+# -----------------------------------
+# PAGE CONFIG
+# -----------------------------------
 
 st.set_page_config(
     page_title="Paper to Presentation & Viva Agent",
+    page_icon="📚",
     layout="wide"
 )
 
-st.title("📄 Paper to Presentation & Viva Agent")
+# -----------------------------------
+# HEADER
+# -----------------------------------
+
+try:
+    st.image("assets/cmr_logo.png", width=250)
+except:
+    pass
+
+st.title("📚 Paper to Presentation & Viva Agent")
 
 st.markdown("""
-### AI Research Assistant
+### AI-Powered Research Assistant
 
-Upload a PDF or provide a paper URL.
+Upload a research paper PDF or provide a paper URL.
 
 Features:
 
-✅ Summary
+✅ Detailed Summary
 
-✅ Contributions
+✅ Main Contributions
+
+✅ Research Impact
 
 ✅ Presentation Slides
 
@@ -38,11 +54,16 @@ Features:
 ✅ Paper Expert Agent
 """)
 
-# -----------------------
-# SIDEBAR
-# -----------------------
+try:
+    st.image("assets/research.png", use_container_width=True)
+except:
+    pass
 
-st.sidebar.header("Settings")
+# -----------------------------------
+# SIDEBAR
+# -----------------------------------
+
+st.sidebar.header("🔑 Settings")
 
 api_key = st.sidebar.text_input(
     "Enter Gemini API Key",
@@ -52,71 +73,57 @@ api_key = st.sidebar.text_input(
 client = None
 
 if api_key:
-
     try:
         client = genai.Client(api_key=api_key)
         st.sidebar.success("API Key Loaded Successfully")
     except Exception as e:
-        st.sidebar.error(f"Invalid API Key: {e}")
+        st.sidebar.error(str(e))
 
-# -----------------------
-# PAPER URL
-# -----------------------
+# -----------------------------------
+# PAPER INPUT
+# -----------------------------------
 
 paper_url = st.text_input(
     "Research Paper URL (Optional)"
 )
 
 uploaded_file = st.file_uploader(
-    "Upload PDF",
+    "Upload Research Paper PDF",
     type=["pdf"]
 )
 
 if paper_url:
-
     try:
-
         response = requests.get(
             paper_url,
             timeout=15
         )
 
         if response.status_code == 200:
-
-            uploaded_file = io.BytesIO(
-                response.content
-            )
-
-            st.success(
-                "Paper downloaded successfully"
-            )
-
+            uploaded_file = io.BytesIO(response.content)
+            st.success("Paper downloaded successfully")
         else:
-
             st.error(
                 "Unable to access paper. Please upload PDF."
             )
 
-    except:
-
+    except Exception:
         st.error(
             "Unable to access paper. Please upload PDF."
         )
 
-# -----------------------
-# PROCESS PAPER
-# -----------------------
+# -----------------------------------
+# PAPER ANALYSIS
+# -----------------------------------
 
 if uploaded_file is not None and client:
 
     try:
-
         pdf = PdfReader(uploaded_file)
 
         text = ""
 
         for page in pdf.pages:
-
             page_text = page.extract_text()
 
             if page_text:
@@ -136,23 +143,14 @@ if uploaded_file is not None and client:
 Analyze this research paper and provide:
 
 1. Detailed Summary
-
 2. Main Contributions
-
 3. Novelty
-
 4. Research Impact
-
 5. Professional 10 Slide Presentation
-
 6. 20 Viva Questions with Answers
-
 7. Research Gaps
-
 8. Limitations
-
 9. Future Work
-
 10. Extension Ideas
 
 Paper:
@@ -161,17 +159,15 @@ Paper:
 """
                 )
 
-                st.subheader("Research Paper Analysis")
-
+                st.subheader("📖 Research Paper Analysis")
                 st.write(response.text)
 
     except Exception as e:
-
         st.error(str(e))
 
-# -----------------------
+# -----------------------------------
 # PAPER EXPERT AGENT
-# -----------------------
+# -----------------------------------
 
 if "paper_text" in st.session_state and client:
 
@@ -220,3 +216,9 @@ Give a detailed answer.
             )
 
             st.write(answer.text)
+
+st.divider()
+
+st.caption(
+    "Developed for Research Presentation and Viva Preparation"
+)
